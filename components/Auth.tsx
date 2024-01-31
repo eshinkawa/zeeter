@@ -49,7 +49,7 @@ export default function Auth() {
       console.log(data);
     }
 
-    router.push("tweets/index");
+    router.push("tweets");
   }
 
   async function signUpWithEmail() {

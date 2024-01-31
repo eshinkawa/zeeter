@@ -1,23 +1,15 @@
-import { format } from "date-fns";
-import { Link, router, useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  SafeAreaView,
-  ScrollView,
-  TouchableOpacity,
-} from "react-native";
-import { Input, Button, FAB, Card, Avatar, Icon } from "react-native-elements";
+import { useRouter } from "expo-router";
+import React, { useCallback, useEffect, useState } from "react";
+import { StyleSheet, ScrollView } from "react-native";
 
+import SendTweetBox from "../../components/SendTweetBox";
+import TweetCard from "../../components/TweetCard";
 import { supabase } from "../../lib/supabase";
 
 const TweetsScreen = () => {
   const [tweets, setTweets] = useState([]);
   const [session, setSession] = useState(null);
-
-  const router = useRouter();
+  const [tweet, setTweet] = useState("");
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -60,7 +52,67 @@ const TweetsScreen = () => {
     else {
       const { data, error } = await supabase
         .from("tweets")
-        .select("*, user:user_id(id, email)")
+        .select("*, user:user_id(id, email, username)")
+        .order("created_at", { ascending: false });
+
+      if (error) console.log("error", error);
+      else {
+        setTweets(data);
+      }
+    }
+  };
+
+  const unlikeTweet = async (tweet) => {
+    //delete from likes table and recall getTweets
+    const { data, error } = await supabase
+      .from("likes")
+      .delete()
+      .eq("tweet_id", tweet.id)
+      .eq("user_id", session.user.id);
+
+    if (error) console.log("error", error);
+    else {
+      const { data, error } = await supabase
+        .from("tweets")
+        .select("*, user:user_id(id, email, username)")
+        .order("created_at", { ascending: false });
+
+      if (error) console.log("error", error);
+      else {
+        setTweets(data);
+      }
+    }
+  };
+
+  const didUserLikeTweet = useCallback(
+    async (tweet) => {
+      const { data, error } = await supabase
+        .from("likes")
+        .select("*")
+        .eq("tweet_id", tweet.id)
+        .eq("user_id", session.user.id);
+
+      if (error) console.log("error", error);
+      else {
+        console.log("data", data);
+        return data.length > 0;
+      }
+    },
+    [session],
+  );
+
+  const sendTweet = async () => {
+    const { error } = await supabase
+      .from("tweets")
+      .insert([{ content: tweet, user_id: session.user.id }])
+      .select("*, user:user_id(id, email)");
+
+    if (error) console.log("error", error);
+    else {
+      setTweet("");
+      const { data, error } = await supabase
+        .from("tweets")
+        .select("*, user:user_id(id, email, username)")
         .order("created_at", { ascending: false });
 
       if (error) console.log("error", error);
@@ -72,138 +124,30 @@ const TweetsScreen = () => {
 
   return (
     <ScrollView style={styles.container}>
-      <View style={styles.tweetContainer}>
-        {tweets.map((tweet) => (
-          <View style={styles.cardContainer} key={tweet.id}>
-            <View style={styles.userInfo}>
-              <Avatar
-                rounded
-                icon={{ name: "user", type: "font-awesome" }}
-                onPress={() => console.log("Works!")}
-                activeOpacity={0.7}
-                containerStyle={{ backgroundColor: "grey", marginRight: 8 }}
-              />
-              <View>
-                <Text style={styles.userName}>Edu Shin</Text>
-                <Text style={styles.userHandle}>@{tweet.user.username}</Text>
-              </View>
-            </View>
-
-            <View style={styles.tweetContent}>
-              <Text style={styles.tweetText}>{tweet.content}</Text>
-              <Text style={styles.tweetText}>
-                {format(new Date(tweet.created_at), "PPpp")}
-              </Text>
-            </View>
-
-            {/* Interaction Bar */}
-            <View style={styles.interactionBar}>
-              <TouchableOpacity style={styles.interactionButton}>
-                <Icon
-                  name="heart"
-                  type="font-awesome"
-                  color={tweet.likes_count > 0 ? "red" : "lightgrey"}
-                  onPress={() => likeTweet(tweet)}
-                  size={18}
-                />
-                <Text style={styles.interactionCount}>{tweet.likes_count}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.interactionButton}>
-                <Icon
-                  name="comment"
-                  type="font-awesome"
-                  color="#1da1f2"
-                  size={18}
-                />
-                <Text style={styles.interactionCount}>0</Text>
-              </TouchableOpacity>
-              {/* Add more buttons as needed */}
-              <TouchableOpacity style={styles.interactionButton}>
-                <Icon
-                  name="retweet"
-                  type="font-awesome"
-                  color="#17bf63"
-                  size={18}
-                />
-                <Text style={styles.interactionCount}>0</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        ))}
-      </View>
-      <FAB
-        icon={{ name: "add", color: "white" }}
-        size="large"
-        style={styles.fab}
-        onPress={() => router.push("tweetModal")}
-      />
+      <SendTweetBox tweet={tweet} setTweet={setTweet} onPress={sendTweet} />
+      {tweets.map((tweet) => (
+        <TweetCard
+          key={tweet.id}
+          likeTweet={() => likeTweet(tweet)}
+          unlikeTweet={() => unlikeTweet(tweet)}
+          tweet={tweet}
+          didUserLikeTweet={didUserLikeTweet(tweet)}
+        />
+      ))}
     </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: "#15202B",
-  },
-  tweetContainer: {
-    padding: 24,
+    backgroundColor: "#15202b",
   },
   fab: {
-    alignItems: "center",
-    justifyContent: "center",
-    width: 70,
+    backgroundColor: "#1da1f2",
     position: "absolute",
-    bottom: 40,
-    right: 20,
-    height: 70,
-    backgroundColor: "#fff",
-    borderRadius: 100,
-  },
-  cardContainer: {
-    backgroundColor: "#19232a",
-    borderRadius: 10,
-    padding: 10,
-    marginVertical: 5,
-  },
-  userInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 5,
-  },
-  userAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginRight: 10,
-  },
-  userName: {
-    fontWeight: "bold",
-    color: "white",
-  },
-  userHandle: {
-    color: "#8899A6", // Lighter grey color for the handle text
-  },
-  tweetContent: {
-    marginVertical: 5,
-    marginLeft: 40,
-  },
-  tweetText: {
-    fontSize: 16,
-    color: "#D9D9D9", // Light grey color for the tweet text, for better readability
-  },
-  interactionBar: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    marginTop: 10,
-  },
-  interactionButton: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  interactionCount: {
-    marginLeft: 5,
-    color: "#FFFFFF",
+    margin: 16,
+    right: 0,
+    bottom: 0,
   },
 });
 

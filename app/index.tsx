@@ -1,6 +1,4 @@
-import React, { useState } from "react";
-import { View, Text, StyleSheet } from "react-native";
-import { Input, Button } from "react-native-elements";
+import React from "react";
 
 import Auth from "../components/Auth";
 
