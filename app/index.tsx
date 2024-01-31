@@ -1,25 +1,11 @@
-import { Link, Slot } from "expo-router";
-import { StatusBar } from "expo-status-bar";
-import { StyleSheet, Text, View } from "react-native";
+import React, { useState } from "react";
+import { View, Text, StyleSheet } from "react-native";
+import { Input, Button } from "react-native-elements";
 
-export default function App() {
-  //create a stack navigator
+import Auth from "../components/Auth";
 
-  return (
-    <View style={styles.container}>
-      <Link href="/login">
-        <Text>Hello</Text>
-      </Link>
-      <StatusBar style="auto" />
-    </View>
-  );
-}
+const SignInSignUpScreen = () => {
+  return <Auth />;
+};
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#fff",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-});
+export default SignInSignUpScreen;
